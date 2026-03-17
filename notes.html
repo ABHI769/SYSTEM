@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Quest System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --void: #0a0a0f;
+      --panel: rgba(15, 15, 25, 0.95);
+      --border: #1a3a5c;
+      --glow: #00d4ff;
+      --glow-soft: rgba(0, 212, 255, 0.4);
+      --glow-faint: rgba(0, 212, 255, 0.05);
+      --text: #e0e8f0;
+      --text-dim: #8a9aaa;
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --danger: #ff4466;
+      --easy: #00ff88;
+      --medium: #ffaa00;
+      --hard: #ff4466;
+    }
+
+    body {
+      transition: --glow 0.4s, --glow-soft 0.4s, --border 0.4s, --glow-faint 0.4s;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--void);
+      min-height: 100vh;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--glow-faint) 1px, transparent 1px),
+        linear-gradient(90deg, var(--glow-faint) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.6;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* System header */
+    .system-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      box-shadow: 0 0 30px var(--glow-soft), inset 0 0 60px var(--glow-faint);
+    }
+
+    .system-header h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 1.4rem;
+      letter-spacing: 0.2em;
+      color: var(--glow);
+      text-shadow: 0 0 20px var(--glow-soft);
+    }
+
+    .system-header .tag {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+      letter-spacing: 0.15em;
+    }
+
+    .sign-in-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-sign-in {
+      padding: 0.6rem 1.5rem;
+      background: transparent;
+      border: 2px solid var(--glow);
+      color: var(--glow);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 0 15px var(--glow-soft);
+    }
+
+    .btn-sign-in:hover {
+      background: var(--glow);
+      color: var(--void);
+      box-shadow: 0 0 25px var(--glow), inset 0 0 20px rgba(0,0,0,0.2);
+      transform: scale(1.02);
+    }
+
+    .sign-in-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 70vh;
+      padding: 2rem;
+    }
+
+    .sign-in-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 2rem;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 0 30px var(--glow-soft), inset 0 0 60px var(--glow-faint);
+    }
+
+    .sign-in-box h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      color: var(--glow);
+      text-align: center;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+    }
+
+    .sign-in-tag {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .sign-in-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sign-in-form input {
+      padding: 0.7rem 1rem;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .sign-in-form input:focus {
+      outline: none;
+      border-color: var(--glow);
+      box-shadow: 0 0 12px var(--glow-soft);
+    }
+
+    .btn-sign-out {
+      padding: 0.4rem 1rem;
+      background: transparent;
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-sign-out:hover {
+      background: rgba(255, 68, 102, 0.2);
+    }
+
+    .signed-in-badge {
+      font-size: 0.75rem;
+      color: var(--success);
+      letter-spacing: 0.1em;
+    }
+
+    .signed-in-badge span {
+      color: var(--glow);
+    }
+
+    /* Level panel - the "single place" */
+    .level-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 25px var(--glow-soft), inset 0 0 40px var(--glow-faint);
+    }
+
+    .level-panel .label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      margin-bottom: 0.5rem;
+    }
+
+    .level-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .level-display {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--glow);
+      text-shadow: 0 0 15px var(--glow-soft);
+    }
+
+    .level-display span {
+      font-size: 1rem;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .exp-bar-wrap {
+      flex: 1;
+      min-width: 200px;
+      height: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .exp-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--glow), var(--glow-soft));
+      box-shadow: 0 0 15px var(--glow-soft);
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    .stat strong {
+      color: var(--glow);
+      margin-right: 0.25rem;
+    }
+
+    /* Add quest panel */
+    .add-quest-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 20px var(--glow-soft);
+    }
+
+    .add-quest-panel .label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      margin-bottom: 0.75rem;
+    }
+
+    .add-quest-form {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .input-wrap {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .add-quest-form input[type="text"] {
+      width: 100%;
+      padding: 0.6rem 0.9rem;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+
+    .add-quest-form input:focus {
+      outline: none;
+      border-color: var(--glow);
+      box-shadow: 0 0 12px var(--glow-soft);
+    }
+
+    .difficulty-select {
+      padding: 0.6rem 0.9rem;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      min-width: 120px;
+      cursor: pointer;
+    }
+
+    .difficulty-select:focus {
+      outline: none;
+      border-color: var(--glow);
+    }
+
+    .btn-add {
+      padding: 0.6rem 1.25rem;
+      background: transparent;
+      border: 1px solid var(--glow);
+      color: var(--glow);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-add:hover {
+      background: var(--glow-soft);
+      color: var(--void);
+      box-shadow: 0 0 20px var(--glow-soft);
+    }
+
+    /* Quest list */
+    .quest-list-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      box-shadow: 0 0 20px var(--glow-soft), inset 0 0 40px var(--glow-faint);
+    }
+
+    .quest-list-panel .label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      margin-bottom: 1rem;
+    }
+
+    .quest-list {
+      list-style: none;
+    }
+
+    .quest-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(26, 58, 92, 0.5);
+      transition: background 0.2s;
+    }
+
+    .quest-item:last-child {
+      border-bottom: none;
+    }
+
+    .quest-item:hover {
+      background: var(--glow-faint);
+    }
+
+    .quest-item.done {
+      opacity: 0.6;
+    }
+
+    .quest-item.done .quest-name {
+      text-decoration: line-through;
+      color: var(--text-dim);
+    }
+
+    .quest-checkbox {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--glow);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .quest-name {
+      flex: 1;
+      font-size: 0.95rem;
+    }
+
+    .quest-difficulty {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .quest-difficulty.easy {
+      color: var(--easy);
+      border: 1px solid var(--easy);
+    }
+
+    .quest-difficulty.medium {
+      color: var(--medium);
+      border: 1px solid var(--medium);
+    }
+
+    .quest-difficulty.hard {
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .quest-points {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--glow);
+      min-width: 3rem;
+      text-align: right;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    .quest-item.mandatory .quest-difficulty {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .quest-remove {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0.25rem;
+      font-size: 1.1rem;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .quest-remove:hover {
+      color: var(--danger);
+    }
+
+    .day-timer-row {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(26, 58, 92, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .day-timer-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+
+    .day-timer {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--glow);
+    }
+
+    .warning-banner {
+      background: rgba(255, 68, 102, 0.15);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      box-shadow: 0 0 15px rgba(255, 68, 102, 0.2);
+    }
+
+    .warning-text {
+      font-weight: 600;
+    }
+
+    /* System notification toast */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      padding: 0.75rem 1.5rem;
+      background: var(--panel);
+      border: 1px solid var(--glow);
+      color: var(--glow);
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+      z-index: 100;
+      box-shadow: 0 0 25px var(--glow-soft);
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 500px) {
+      .level-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .exp-bar-wrap {
+        width: 100%;
+      }
+      .add-quest-form {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="container">
+    <div class="sign-in-screen" id="signInScreen">
+      <div class="sign-in-box">
+        <h2>[ SYSTEM LOCKED ]</h2>
+        <p class="sign-in-tag">Sign in to access the Daily Quest System.</p>
+        <form class="sign-in-form" id="signInForm">
+          <input type="text" id="usernameInput" placeholder="Enter your name (Hunter)" autocomplete="username" maxlength="32">
+          <button type="submit" class="btn-sign-in">SIGN IN</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="appContent" style="display: none;">
+    <header class="system-header">
+      <h1>[ DAILY QUEST SYSTEM ]</h1>
+      <p class="tag">Complete quests. Gain experience. Level up. Quests reset each day.</p>
+      <div class="sign-in-row">
+        <span class="signed-in-badge">Signed in as <strong id="currentUsername"></strong> · <span id="todayDate"></span></span>
+        <button type="button" class="btn-sign-out" id="signOutBtn">SIGN OUT</button>
+      </div>
+    </header>
+
+    <section class="level-panel">
+      <div class="label">[ STATUS ]</div>
+      <div class="level-row">
+        <div class="level-display">LV.<span id="levelNum">1</span></div>
+        <div class="exp-bar-wrap">
+          <div class="exp-bar" id="expBar"></div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <span class="stat"><strong id="totalPoints">0</strong> Total EXP</span>
+        <span class="stat"><strong id="completedCount">0</strong> Quests completed today</span>
+        <span class="stat">+50 EXP per level</span>
+      </div>
+      <div class="day-timer-row">
+        <span class="day-timer-label">Time left in day:</span>
+        <span class="day-timer" id="dayTimer">00:00:00</span>
+      </div>
+    </section>
+
+    <div class="warning-banner" id="warningBanner" style="display: none;">
+      <span class="warning-text" id="warningText"></span>
+    </div>
+
+    <section class="add-quest-panel">
+      <div class="label">[ REGISTER QUEST ]</div>
+      <form class="add-quest-form" id="addQuestForm">
+        <div class="input-wrap">
+          <input type="text" id="questInput" placeholder="Enter your task..." required autocomplete="off">
+        </div>
+        <select class="difficulty-select" id="difficulty">
+          <option value="easy">Easy (+10 EXP)</option>
+          <option value="medium">Medium (+20 EXP)</option>
+          <option value="hard">Hard (+50 EXP)</option>
+        </select>
+        <button type="submit" class="btn-add">ADD QUEST</button>
+      </form>
+    </section>
+
+    <section class="quest-list-panel">
+      <div class="label">[ DAILY QUESTS ]</div>
+      <ul class="quest-list" id="questList"></ul>
+      <p class="empty-state" id="emptyState">No custom quests. Add one above.</p>
+    </section>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const POINTS = { easy: 10, medium: 20, hard: 50 };
+    const EXP_PER_LEVEL = 50;
+    const STORAGE_KEY = 'soloLevelingData';
+
+    let currentUser = null;
+    let quests = [];
+    let totalExp = 0;
+
+    function getTodayKey() {
+      return new Date().toDateString();
+    }
+
+    function getYesterdayKey() {
+      return new Date(Date.now() - 86400000).toDateString();
+    }
+
+    function emptyUserData() {
+      return {
+        questsByDate: {},
+        totalExp: 0,
+        mandatoryByDate: {},
+        mandatoryBonusByDate: {},
+        lastProcessedDate: null,
+        lastSignInDate: null
+      };
+    }
+
+    function getAllStoredData() {
+      try {
+        let raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          const migrated = migrateFromOldStorage();
+          if (migrated) return migrated;
+          return { currentUser: null, users: {} };
+        }
+        const data = JSON.parse(raw);
+        if (data.currentUser === undefined && data.questsByDate !== undefined) {
+          migrateLegacyToUsers(data);
+          return data;
+        }
+        return {
+          currentUser: data.currentUser || null,
+          users: data.users || {}
+        };
+      } catch (e) {
+        return { currentUser: null, users: {} };
+      }
+    }
+
+    function migrateLegacyToUsers(data) {
+      const userData = {
+        questsByDate: data.questsByDate || {},
+        totalExp: typeof data.totalExp === 'number' ? data.totalExp : 0,
+        mandatoryByDate: data.mandatoryByDate || {},
+        mandatoryBonusByDate: data.mandatoryBonusByDate || {},
+        lastProcessedDate: data.lastProcessedDate || null,
+        lastSignInDate: data.lastSignInDate || null
+      };
+      data.currentUser = 'Hunter';
+      data.users = { Hunter: userData };
+      delete data.questsByDate;
+      delete data.totalExp;
+      delete data.mandatoryByDate;
+      delete data.mandatoryBonusByDate;
+      delete data.lastProcessedDate;
+      delete data.lastSignInDate;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function migrateFromOldStorage() {
+      const byDate = localStorage.getItem('soloQuestsByDate');
+      const exp = localStorage.getItem('soloTotalExp');
+      if (!byDate && !exp) return null;
+      let questsByDate = {};
+      try {
+        if (byDate) questsByDate = JSON.parse(byDate);
+      } catch (e) {}
+      const totalExp = parseInt(exp || '0', 10);
+      const data = {
+        currentUser: 'Hunter',
+        users: {
+          Hunter: {
+            questsByDate,
+            totalExp,
+            mandatoryByDate: {},
+            mandatoryBonusByDate: {},
+            lastProcessedDate: null,
+            lastSignInDate: null
+          }
+        }
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.removeItem('soloQuestsByDate');
+      localStorage.removeItem('soloTotalExp');
+      return data;
+    }
+
+    function recalculateTotalExp(questsByDate) {
+      let sum = 0;
+      for (const date in questsByDate) {
+        const list = questsByDate[date] || [];
+        for (const q of list) {
+          if (q.done && POINTS[q.difficulty]) sum += POINTS[q.difficulty];
+        }
+      }
+      return sum;
+    }
+
+    let mandatory = { pushups: false, situps: false, squats: false, walk: false };
+
+    function getMandatoryRequirements(level) {
+      if (level >= 50) {
+        return { pushups: 100, situps: 100, squats: 100, walkKm: 10 };
+      }
+      const tier = Math.ceil(level / 10);
+      const reps = tier * 10;
+      const walkKm = tier;
+      return { pushups: reps, situps: reps, squats: reps, walkKm };
+    }
+
+    function getMandatoryBonus(level) {
+      return level >= 50 ? 100 : 50;
+    }
+
+    function allMandatoryComplete() {
+      return mandatory.pushups && mandatory.situps && mandatory.squats && mandatory.walk;
+    }
+
+    function getCurrentUserData() {
+      const data = getAllStoredData();
+      if (!data.currentUser || !data.users[data.currentUser]) return null;
+      return data.users[data.currentUser];
+    }
+
+    function loadState() {
+      const data = getAllStoredData();
+      currentUser = data.currentUser;
+      if (!currentUser) {
+        quests = [];
+        totalExp = 0;
+        mandatory = { pushups: false, situps: false, squats: false, walk: false };
+        return;
+      }
+      if (!data.users[currentUser]) data.users[currentUser] = emptyUserData();
+      const userData = data.users[currentUser];
+      const today = getTodayKey();
+      const yesterday = getYesterdayKey();
+      if (!userData.questsByDate[today]) userData.questsByDate[today] = [];
+      quests = userData.questsByDate[today];
+      totalExp = typeof userData.totalExp === 'number' ? userData.totalExp : recalculateTotalExp(userData.questsByDate);
+      mandatory = userData.mandatoryByDate[today] || { pushups: false, situps: false, squats: false, walk: false };
+
+      if (userData.lastProcessedDate !== yesterday && userData.mandatoryByDate[yesterday]) {
+        const allDone = userData.mandatoryByDate[yesterday].pushups &&
+          userData.mandatoryByDate[yesterday].situps &&
+          userData.mandatoryByDate[yesterday].squats &&
+          userData.mandatoryByDate[yesterday].walk;
+        if (!allDone) {
+          const level = getLevel(totalExp).level;
+          if (level <= 90) {
+            totalExp = Math.max(0, totalExp - 100);
+            setTimeout(() => showToast('[ System ] Mandatory quests incomplete yesterday. Level reduced by 2.'), 500);
+          }
+        }
+        userData.lastProcessedDate = yesterday;
+        userData.totalExp = totalExp;
+        userData.questsByDate[today] = quests;
+        userData.mandatoryByDate[today] = mandatory;
+        data.users[currentUser] = userData;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
+    }
+
+    function saveState(mandatoryBonusGrantedToday) {
+      const data = getAllStoredData();
+      if (!currentUser) return;
+      if (!data.users[currentUser]) data.users[currentUser] = emptyUserData();
+      const userData = data.users[currentUser];
+      const today = getTodayKey();
+      userData.questsByDate[today] = quests;
+      userData.totalExp = totalExp;
+      if (!userData.mandatoryByDate[today]) userData.mandatoryByDate[today] = {};
+      userData.mandatoryByDate[today] = mandatory;
+      if (userData.mandatoryBonusByDate === undefined) userData.mandatoryBonusByDate = {};
+      if (mandatoryBonusGrantedToday !== undefined) userData.mandatoryBonusByDate[today] = mandatoryBonusGrantedToday;
+      data.users[currentUser] = userData;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    function getLevel(exp) {
+      if (exp < 0) exp = 0;
+      const level = Math.floor(exp / EXP_PER_LEVEL); // starts at 0
+      const current = exp % EXP_PER_LEVEL;
+      return { level, current, needed: EXP_PER_LEVEL };
+    }
+
+    function hexToRgb(hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return { r, g, b };
+    }
+
+    function lerpHex(hex1, hex2, t) {
+      t = Math.max(0, Math.min(1, t));
+      const a = hexToRgb(hex1);
+      const b = hexToRgb(hex2);
+      const r = Math.round(a.r + (b.r - a.r) * t);
+      const g = Math.round(a.g + (b.g - a.g) * t);
+      const bl = Math.round(a.b + (b.b - a.b) * t);
+      return '#' + [r, g, bl].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function hexToRgba(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function getThemeForLevel(level) {
+      const capped = Math.max(1, Math.min(100, level));
+      let glow, border;
+      if (capped <= 50) {
+        const t = (capped - 1) / 49;
+        glow = lerpHex('#00d4ff', '#003d4d', t);
+        border = lerpHex('#1a3a5c', '#0a1820', t);
+      } else {
+        const t = (capped - 51) / 49;
+        glow = lerpHex('#3d2060', '#b366ff', t);
+        border = lerpHex('#1a0d28', '#4a2d6e', t);
+      }
+      return {
+        glow,
+        glowSoft: hexToRgba(glow, 0.4),
+        glowFaint: hexToRgba(glow, 0.06),
+        border
+      };
+    }
+
+    function applyTheme(level) {
+      const theme = getThemeForLevel(level);
+      const root = document.documentElement.style;
+      root.setProperty('--glow', theme.glow);
+      root.setProperty('--glow-soft', theme.glowSoft);
+      root.setProperty('--glow-faint', theme.glowFaint);
+      root.setProperty('--border', theme.border);
+    }
+
+    function renderLevel() {
+      const { level, current, needed } = getLevel(totalExp);
+      const pct = needed ? Math.min(100, (current / needed) * 100) : 0;
+
+      applyTheme(Math.max(1, level));
+      document.getElementById('levelNum').textContent = level;
+      document.getElementById('expBar').style.width = pct + '%';
+      document.getElementById('totalPoints').textContent = totalExp;
+      document.getElementById('completedCount').textContent = quests.filter(q => q.done).length;
+    }
+
+    function showAppView() {
+      document.getElementById('signInScreen').style.display = 'none';
+      document.getElementById('appContent').style.display = 'block';
+    }
+
+    function showSignInView() {
+      document.getElementById('signInScreen').style.display = 'flex';
+      document.getElementById('appContent').style.display = 'none';
+      document.getElementById('usernameInput').value = '';
+    }
+
+    function updateSignInUI() {
+      document.getElementById('currentUsername').textContent = currentUser || '';
+      document.getElementById('todayDate').textContent = getTodayKey();
+    }
+
+    function doSignIn(username) {
+      const name = (username || '').trim().replace(/\s+/g, ' ') || 'Hunter';
+      const data = getAllStoredData();
+      data.currentUser = name;
+      if (!data.users[name]) data.users[name] = emptyUserData();
+      data.users[name].lastSignInDate = getTodayKey();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      currentUser = name;
+      loadState();
+      updateSignInUI();
+      showAppView();
+      renderLevel();
+      renderQuests();
+      updateDayTimer();
+      const isNew = !data.users[name].questsByDate || Object.keys(data.users[name].questsByDate).length === 0;
+      showToast(isNew ? '[ System ] Welcome, ' + name + '. Good luck, Hunter.' : '[ System ] Welcome back, ' + name + '. Your progress has been restored.');
+    }
+
+    function doSignOut() {
+      const data = getAllStoredData();
+      data.currentUser = null;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      currentUser = null;
+      quests = [];
+      totalExp = 0;
+      mandatory = { pushups: false, situps: false, squats: false, walk: false };
+      showSignInView();
+      showToast('[ System ] Signed out. Sign in again to restore your progress.');
+    }
+
+    function renderQuests() {
+      const list = document.getElementById('questList');
+      const empty = document.getElementById('emptyState');
+      const { level } = getLevel(totalExp);
+      const effectiveLevel = Math.max(1, level);
+      const req = getMandatoryRequirements(effectiveLevel);
+      const mandatoryKeys = ['pushups', 'situps', 'squats', 'walk'];
+      const mandatoryLabels = {
+        pushups: `${req.pushups} Pushups`,
+        situps: `${req.situps} Situps`,
+        squats: `${req.squats} Squats`,
+        walk: `${req.walkKm} km Walk`
+      };
+
+      list.innerHTML = '';
+
+      mandatoryKeys.forEach(key => {
+        const li = document.createElement('li');
+        li.className = 'quest-item mandatory' + (mandatory[key] ? ' done' : '');
+        li.innerHTML = `
+          <input type="checkbox" class="quest-checkbox" ${mandatory[key] ? 'checked' : ''} data-mandatory="${key}">
+          <span class="quest-name">${escapeHtml(mandatoryLabels[key])}</span>
+          <span class="quest-difficulty">MANDATORY</span>
+          <span class="quest-points"></span>
+        `;
+        list.appendChild(li);
+      });
+
+      quests.forEach((q, i) => {
+        const li = document.createElement('li');
+        li.className = 'quest-item' + (q.done ? ' done' : '');
+        li.innerHTML = `
+          <input type="checkbox" class="quest-checkbox" ${q.done ? 'checked' : ''} data-idx="${i}">
+          <span class="quest-name">${escapeHtml(q.name)}</span>
+          <span class="quest-difficulty ${q.difficulty}">${q.difficulty.toUpperCase()}</span>
+          <span class="quest-points">+${POINTS[q.difficulty]} EXP</span>
+          <button type="button" class="quest-remove" data-idx="${i}" title="Remove quest">×</button>
+        `;
+        list.appendChild(li);
+      });
+
+      empty.style.display = quests.length === 0 ? 'block' : 'none';
+
+      list.querySelectorAll('.quest-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+          const mandatoryKey = this.dataset.mandatory;
+          if (mandatoryKey) {
+            mandatory[mandatoryKey] = this.checked;
+            const userData = getCurrentUserData();
+            const today = getTodayKey();
+            const hadBonus = userData && userData.mandatoryBonusByDate && userData.mandatoryBonusByDate[today];
+            const level = Math.max(1, getLevel(totalExp).level);
+            const bonus = getMandatoryBonus(level);
+            if (allMandatoryComplete()) {
+              if (!hadBonus) {
+                totalExp += bonus;
+                saveState(true);
+                showToast(`[ System ] All mandatory quests complete! +${bonus} EXP acquired.`);
+              } else {
+                saveState(true);
+                showToast('[ System ] Mandatory quest completed.');
+              }
+            } else {
+              if (hadBonus) {
+                totalExp -= bonus;
+                saveState(false);
+                showToast('[ System ] Mandatory quest unchecked. Bonus EXP revoked.');
+              } else {
+                saveState();
+                showToast(this.checked ? '[ System ] Mandatory quest completed.' : '[ System ] Mandatory quest unchecked.');
+              }
+            }
+            renderLevel();
+            renderQuests();
+            return;
+          }
+          const idx = parseInt(this.dataset.idx, 10);
+          const q = quests[idx];
+          if (q.done) {
+            q.done = false;
+            totalExp -= POINTS[q.difficulty];
+            showToast('[ System ] Quest uncompleted. EXP revoked.');
+          } else {
+            q.done = true;
+            totalExp += POINTS[q.difficulty];
+            showToast(`[ System ] Quest complete. +${POINTS[q.difficulty]} EXP acquired.`);
+          }
+          saveState();
+          renderLevel();
+          renderQuests();
+        });
+      });
+
+      list.querySelectorAll('.quest-remove').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.idx, 10);
+          const q = quests[idx];
+          if (q.done) totalExp -= POINTS[q.difficulty];
+          quests.splice(idx, 1);
+          saveState();
+          renderLevel();
+          renderQuests();
+          showToast('[ System ] Quest removed.');
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    document.getElementById('addQuestForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const input = document.getElementById('questInput');
+      const name = input.value.trim();
+      const difficulty = document.getElementById('difficulty').value;
+      if (!name) return;
+
+      quests.push({ name, difficulty, done: false });
+      saveState();
+      input.value = '';
+      renderQuests();
+      renderLevel();
+      showToast('[ System ] New quest registered.');
+    });
+
+    function getMsUntilMidnight() {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      return midnight - now;
+    }
+
+    function formatTime(ms) {
+      if (ms <= 0) return '00:00:00';
+      const s = Math.floor(ms / 1000) % 60;
+      const m = Math.floor(ms / 60000) % 60;
+      const h = Math.floor(ms / 3600000);
+      return [h, m, s].map(x => String(x).padStart(2, '0')).join(':');
+    }
+
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    let lastMsLeft = null;
+
+    function updateDayTimer() {
+      const ms = getMsUntilMidnight();
+      document.getElementById('dayTimer').textContent = formatTime(ms);
+      const warningBanner = document.getElementById('warningBanner');
+      const warningText = document.getElementById('warningText');
+      if (!currentUser) {
+        warningBanner.style.display = 'none';
+        lastMsLeft = ms;
+        return;
+      }
+
+      const level = getLevel(totalExp).level;
+      const shouldWarn = ms <= TWO_HOURS_MS && ms > 0 && !allMandatoryComplete();
+
+      // Trigger the warning exactly when we cross the 22-hour point (2 hours left)
+      if (lastMsLeft !== null && lastMsLeft > TWO_HOURS_MS && shouldWarn) {
+        showToast(level <= 90
+          ? '[ System ] WARNING: 2 hours left. Complete mandatory quests or lose 2 levels.'
+          : '[ System ] WARNING: 2 hours left. Complete your mandatory quests.');
+      }
+
+      if (shouldWarn) {
+        warningBanner.style.display = 'block';
+        if (level <= 90) {
+          warningText.textContent = 'WARNING: Less than 2 hours left! Complete all mandatory quests or lose 2 levels.';
+        } else {
+          warningText.textContent = 'WARNING: Complete your mandatory quests before the day ends!';
+        }
+      } else {
+        warningBanner.style.display = 'none';
+      }
+      lastMsLeft = ms;
+    }
+
+    function init() {
+      const data = getAllStoredData();
+      currentUser = data.currentUser;
+      loadState();
+      document.getElementById('signOutBtn').addEventListener('click', doSignOut);
+      document.getElementById('signInForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('usernameInput').value;
+        doSignIn(username);
+      });
+      updateDayTimer();
+      setInterval(updateDayTimer, 1000);
+      if (currentUser) {
+        showAppView();
+        updateSignInUI();
+        renderLevel();
+        renderQuests();
+      } else {
+        showSignInView();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
