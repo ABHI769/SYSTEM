@@ -574,7 +574,7 @@
         <span class="stat">+50 EXP per level</span>
       </div>
       <div class="day-timer-row">
-        <span class="day-timer-label">Time left in day:</span>
+        <span class="day-timer-label">Time in day:</span>
         <span class="day-timer" id="dayTimer">00:00:00</span>
       </div>
     </section>
@@ -612,6 +612,7 @@
     const POINTS = { easy: 10, medium: 20, hard: 50 };
     const EXP_PER_LEVEL = 50;
     const STORAGE_KEY = 'soloLevelingData';
+    const SESSION_USER_KEY = 'soloLevelingSessionUser';
 
     let currentUser = null;
     let quests = [];
@@ -627,12 +628,16 @@
 
     function emptyUserData() {
       return {
-        questsByDate: {},
+        questsByDate: {}, // legacy
+        questsByCycle: {},
         totalExp: 0,
-        mandatoryByDate: {},
-        mandatoryBonusByDate: {},
+        mandatoryByDate: {}, // legacy
+        mandatoryByCycle: {},
+        mandatoryBonusByDate: {}, // legacy
+        mandatoryBonusByCycle: {},
         lastProcessedDate: null,
-        lastSignInDate: null
+        lastSignInDate: null,
+        cycleStartTs: null
       };
     }
 
@@ -642,7 +647,7 @@
         if (!raw) {
           const migrated = migrateFromOldStorage();
           if (migrated) return migrated;
-          return { currentUser: null, users: {} };
+          return { users: {} };
         }
         const data = JSON.parse(raw);
         if (data.currentUser === undefined && data.questsByDate !== undefined) {
@@ -650,11 +655,10 @@
           return data;
         }
         return {
-          currentUser: data.currentUser || null,
           users: data.users || {}
         };
       } catch (e) {
-        return { currentUser: null, users: {} };
+        return { users: {} };
       }
     }
 
@@ -667,7 +671,6 @@
         lastProcessedDate: data.lastProcessedDate || null,
         lastSignInDate: data.lastSignInDate || null
       };
-      data.currentUser = 'Hunter';
       data.users = { Hunter: userData };
       delete data.questsByDate;
       delete data.totalExp;
@@ -675,6 +678,7 @@
       delete data.mandatoryBonusByDate;
       delete data.lastProcessedDate;
       delete data.lastSignInDate;
+      delete data.currentUser;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
 
@@ -688,7 +692,6 @@
       } catch (e) {}
       const totalExp = parseInt(exp || '0', 10);
       const data = {
-        currentUser: 'Hunter',
         users: {
           Hunter: {
             questsByDate,
@@ -717,6 +720,26 @@
       return sum;
     }
 
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    function getCycleKey() {
+      const userData = getCurrentUserData();
+      if (!userData || !userData.cycleStartTs) return null;
+      return String(userData.cycleStartTs);
+    }
+
+    function getCycleMsElapsed() {
+      const userData = getCurrentUserData();
+      if (!userData || !userData.cycleStartTs) return 0;
+      return Math.max(0, Date.now() - userData.cycleStartTs);
+    }
+
+    function getCycleStartLabel() {
+      const userData = getCurrentUserData();
+      if (!userData || !userData.cycleStartTs) return getTodayKey();
+      return new Date(userData.cycleStartTs).toDateString();
+    }
+
     let mandatory = { pushups: false, situps: false, squats: false, walk: false };
 
     function getMandatoryRequirements(level) {
@@ -739,13 +762,14 @@
 
     function getCurrentUserData() {
       const data = getAllStoredData();
-      if (!data.currentUser || !data.users[data.currentUser]) return null;
-      return data.users[data.currentUser];
+      const sessionUser = currentUser || sessionStorage.getItem(SESSION_USER_KEY);
+      if (!sessionUser || !data.users[sessionUser]) return null;
+      return data.users[sessionUser];
     }
 
     function loadState() {
       const data = getAllStoredData();
-      currentUser = data.currentUser;
+      currentUser = sessionStorage.getItem(SESSION_USER_KEY);
       if (!currentUser) {
         quests = [];
         totalExp = 0;
@@ -754,32 +778,31 @@
       }
       if (!data.users[currentUser]) data.users[currentUser] = emptyUserData();
       const userData = data.users[currentUser];
-      const today = getTodayKey();
-      const yesterday = getYesterdayKey();
-      if (!userData.questsByDate[today]) userData.questsByDate[today] = [];
-      quests = userData.questsByDate[today];
-      totalExp = typeof userData.totalExp === 'number' ? userData.totalExp : recalculateTotalExp(userData.questsByDate);
-      mandatory = userData.mandatoryByDate[today] || { pushups: false, situps: false, squats: false, walk: false };
+      // Initialize / rotate 24h cycle (starts at sign-in; not before)
+      if (!userData.cycleStartTs) userData.cycleStartTs = Date.now();
+      if (!userData.questsByCycle) userData.questsByCycle = {};
+      if (!userData.mandatoryByCycle) userData.mandatoryByCycle = {};
+      if (!userData.mandatoryBonusByCycle) userData.mandatoryBonusByCycle = {};
 
-      if (userData.lastProcessedDate !== yesterday && userData.mandatoryByDate[yesterday]) {
-        const allDone = userData.mandatoryByDate[yesterday].pushups &&
-          userData.mandatoryByDate[yesterday].situps &&
-          userData.mandatoryByDate[yesterday].squats &&
-          userData.mandatoryByDate[yesterday].walk;
-        if (!allDone) {
-          const level = getLevel(totalExp).level;
-          if (level <= 90) {
-            totalExp = Math.max(0, totalExp - 100);
-            setTimeout(() => showToast('[ System ] Mandatory quests incomplete yesterday. Level reduced by 2.'), 500);
-          }
-        }
-        userData.lastProcessedDate = yesterday;
-        userData.totalExp = totalExp;
-        userData.questsByDate[today] = quests;
-        userData.mandatoryByDate[today] = mandatory;
-        data.users[currentUser] = userData;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const cycleElapsed = Date.now() - userData.cycleStartTs;
+      if (cycleElapsed >= DAY_MS) {
+        userData.cycleStartTs = Date.now();
       }
+
+      const cycleKey = String(userData.cycleStartTs);
+      if (!userData.questsByCycle[cycleKey]) userData.questsByCycle[cycleKey] = [];
+      quests = userData.questsByCycle[cycleKey];
+      totalExp = typeof userData.totalExp === 'number'
+        ? userData.totalExp
+        : recalculateTotalExp(userData.questsByDate || {});
+      mandatory = userData.mandatoryByCycle[cycleKey] || { pushups: false, situps: false, squats: false, walk: false };
+
+      // Persist any cycle initialization/rotation
+      userData.questsByCycle[cycleKey] = quests;
+      userData.mandatoryByCycle[cycleKey] = mandatory;
+      userData.totalExp = totalExp;
+      data.users[currentUser] = userData;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
 
     function saveState(mandatoryBonusGrantedToday) {
@@ -787,13 +810,16 @@
       if (!currentUser) return;
       if (!data.users[currentUser]) data.users[currentUser] = emptyUserData();
       const userData = data.users[currentUser];
-      const today = getTodayKey();
-      userData.questsByDate[today] = quests;
+      if (!userData.questsByCycle) userData.questsByCycle = {};
+      if (!userData.mandatoryByCycle) userData.mandatoryByCycle = {};
+      if (!userData.mandatoryBonusByCycle) userData.mandatoryBonusByCycle = {};
+      if (!userData.cycleStartTs) userData.cycleStartTs = Date.now();
+      const cycleKey = String(userData.cycleStartTs);
+      userData.questsByCycle[cycleKey] = quests;
       userData.totalExp = totalExp;
-      if (!userData.mandatoryByDate[today]) userData.mandatoryByDate[today] = {};
-      userData.mandatoryByDate[today] = mandatory;
-      if (userData.mandatoryBonusByDate === undefined) userData.mandatoryBonusByDate = {};
-      if (mandatoryBonusGrantedToday !== undefined) userData.mandatoryBonusByDate[today] = mandatoryBonusGrantedToday;
+      if (!userData.mandatoryByCycle[cycleKey]) userData.mandatoryByCycle[cycleKey] = {};
+      userData.mandatoryByCycle[cycleKey] = mandatory;
+      if (mandatoryBonusGrantedToday !== undefined) userData.mandatoryBonusByCycle[cycleKey] = mandatoryBonusGrantedToday;
       data.users[currentUser] = userData;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
@@ -887,36 +913,39 @@
 
     function updateSignInUI() {
       document.getElementById('currentUsername').textContent = currentUser || '';
-      document.getElementById('todayDate').textContent = getTodayKey();
+      document.getElementById('todayDate').textContent = getCycleStartLabel();
     }
 
     function doSignIn(username) {
       const name = (username || '').trim().replace(/\s+/g, ' ') || 'Hunter';
       const data = getAllStoredData();
-      data.currentUser = name;
       if (!data.users[name]) data.users[name] = emptyUserData();
       data.users[name].lastSignInDate = getTodayKey();
+      // Start the 24h cycle at login
+      data.users[name].cycleStartTs = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       currentUser = name;
+      sessionStorage.setItem(SESSION_USER_KEY, name);
       loadState();
       updateSignInUI();
       showAppView();
       renderLevel();
       renderQuests();
       updateDayTimer();
-      const isNew = !data.users[name].questsByDate || Object.keys(data.users[name].questsByDate).length === 0;
+      const isNew = !data.users[name].questsByCycle || Object.keys(data.users[name].questsByCycle).length === 0;
       showToast(isNew ? '[ System ] Welcome, ' + name + '. Good luck, Hunter.' : '[ System ] Welcome back, ' + name + '. Your progress has been restored.');
     }
 
     function doSignOut() {
-      const data = getAllStoredData();
-      data.currentUser = null;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       currentUser = null;
+      sessionStorage.removeItem(SESSION_USER_KEY);
       quests = [];
       totalExp = 0;
       mandatory = { pushups: false, situps: false, squats: false, walk: false };
       showSignInView();
+      document.getElementById('dayTimer').textContent = '00:00:00';
+      document.getElementById('warningBanner').style.display = 'none';
+      lastElapsed = null;
       showToast('[ System ] Signed out. Sign in again to restore your progress.');
     }
 
@@ -969,8 +998,8 @@
           if (mandatoryKey) {
             mandatory[mandatoryKey] = this.checked;
             const userData = getCurrentUserData();
-            const today = getTodayKey();
-            const hadBonus = userData && userData.mandatoryBonusByDate && userData.mandatoryBonusByDate[today];
+            const cycleKey = getCycleKey();
+            const hadBonus = cycleKey && userData && userData.mandatoryBonusByCycle && userData.mandatoryBonusByCycle[cycleKey];
             const level = Math.max(1, getLevel(totalExp).level);
             const bonus = getMandatoryBonus(level);
             if (allMandatoryComplete()) {
@@ -1048,11 +1077,8 @@
       showToast('[ System ] New quest registered.');
     });
 
-    function getMsUntilMidnight() {
-      const now = new Date();
-      const midnight = new Date(now);
-      midnight.setHours(24, 0, 0, 0);
-      return midnight - now;
+    function getMsInCycleElapsed() {
+      return Math.min(DAY_MS, getCycleMsElapsed());
     }
 
     function formatTime(ms) {
@@ -1064,24 +1090,25 @@
     }
 
     const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-    let lastMsLeft = null;
+    let lastElapsed = null;
 
     function updateDayTimer() {
-      const ms = getMsUntilMidnight();
-      document.getElementById('dayTimer').textContent = formatTime(ms);
+      const elapsed = getMsInCycleElapsed();
       const warningBanner = document.getElementById('warningBanner');
       const warningText = document.getElementById('warningText');
       if (!currentUser) {
+        document.getElementById('dayTimer').textContent = '00:00:00';
         warningBanner.style.display = 'none';
-        lastMsLeft = ms;
+        lastElapsed = null;
         return;
       }
+      document.getElementById('dayTimer').textContent = formatTime(elapsed);
 
       const level = getLevel(totalExp).level;
-      const shouldWarn = ms <= TWO_HOURS_MS && ms > 0 && !allMandatoryComplete();
+      const shouldWarn = elapsed >= (DAY_MS - TWO_HOURS_MS) && elapsed < DAY_MS && !allMandatoryComplete();
 
-      // Trigger the warning exactly when we cross the 22-hour point (2 hours left)
-      if (lastMsLeft !== null && lastMsLeft > TWO_HOURS_MS && shouldWarn) {
+      // Trigger warning exactly when we cross 22:00:00 elapsed
+      if (lastElapsed !== null && lastElapsed < (DAY_MS - TWO_HOURS_MS) && shouldWarn) {
         showToast(level <= 90
           ? '[ System ] WARNING: 2 hours left. Complete mandatory quests or lose 2 levels.'
           : '[ System ] WARNING: 2 hours left. Complete your mandatory quests.');
@@ -1097,12 +1124,26 @@
       } else {
         warningBanner.style.display = 'none';
       }
-      lastMsLeft = ms;
+      lastElapsed = elapsed;
+
+      // Auto-reset cycle at 24h and refresh quests
+      if (elapsed >= DAY_MS) {
+        const data = getAllStoredData();
+        if (currentUser && data.users[currentUser]) {
+          data.users[currentUser].cycleStartTs = Date.now();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          loadState();
+          updateSignInUI();
+          renderLevel();
+          renderQuests();
+          showToast('[ System ] New day cycle started. Daily quests refreshed.');
+          lastElapsed = 0;
+        }
+      }
     }
 
     function init() {
-      const data = getAllStoredData();
-      currentUser = data.currentUser;
+      currentUser = sessionStorage.getItem(SESSION_USER_KEY);
       loadState();
       document.getElementById('signOutBtn').addEventListener('click', doSignOut);
       document.getElementById('signInForm').addEventListener('submit', function(e) {
