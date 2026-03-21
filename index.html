@@ -571,7 +571,7 @@
       <div class="stats-row">
         <span class="stat"><strong id="totalPoints">0</strong> Total EXP</span>
         <span class="stat"><strong id="completedCount">0</strong> Quests completed today</span>
-        <span class="stat">+50 EXP per level</span>
+        <span class="stat">+40 EXP per level</span>
       </div>
       <div class="day-timer-row">
         <span class="day-timer-label">Time in day:</span>
@@ -592,7 +592,7 @@
         <select class="difficulty-select" id="difficulty">
           <option value="easy">Easy (+10 EXP)</option>
           <option value="medium">Medium (+20 EXP)</option>
-          <option value="hard">Hard (+50 EXP)</option>
+          <option value="hard">Hard (+30 EXP)</option>
         </select>
         <button type="submit" class="btn-add">ADD QUEST</button>
       </form>
@@ -609,7 +609,7 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const POINTS = { easy: 10, medium: 20, hard: 50 };
+    const POINTS = { easy: 10, medium: 20, hard: 30 };
     const EXP_PER_LEVEL = 50;
     const STORAGE_KEY = 'soloLevelingData';
     const SESSION_USER_KEY = 'soloLevelingSessionUser';
@@ -753,7 +753,7 @@
     }
 
     function getMandatoryBonus(level) {
-      return level >= 50 ? 100 : 50;
+      return level >= 50 ? 100 : 40;
     }
 
     function allMandatoryComplete() {
@@ -762,14 +762,14 @@
 
     function getCurrentUserData() {
       const data = getAllStoredData();
-      const sessionUser = currentUser || sessionStorage.getItem(SESSION_USER_KEY);
+      const sessionUser = currentUser || localStorage.getItem(SESSION_USER_KEY);
       if (!sessionUser || !data.users[sessionUser]) return null;
       return data.users[sessionUser];
     }
 
     function loadState() {
       const data = getAllStoredData();
-      currentUser = sessionStorage.getItem(SESSION_USER_KEY);
+      currentUser = localStorage.getItem(SESSION_USER_KEY);
       if (!currentUser) {
         quests = [];
         totalExp = 0;
@@ -925,7 +925,7 @@
       data.users[name].cycleStartTs = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       currentUser = name;
-      sessionStorage.setItem(SESSION_USER_KEY, name);
+      localStorage.setItem(SESSION_USER_KEY, name);
       loadState();
       updateSignInUI();
       showAppView();
@@ -938,7 +938,7 @@
 
     function doSignOut() {
       currentUser = null;
-      sessionStorage.removeItem(SESSION_USER_KEY);
+      localStorage.removeItem(SESSION_USER_KEY);
       quests = [];
       totalExp = 0;
       mandatory = { pushups: false, situps: false, squats: false, walk: false };
@@ -1143,7 +1143,12 @@
     }
 
     function init() {
-      currentUser = sessionStorage.getItem(SESSION_USER_KEY);
+      const legacySession = sessionStorage.getItem(SESSION_USER_KEY);
+      if (legacySession && !localStorage.getItem(SESSION_USER_KEY)) {
+        localStorage.setItem(SESSION_USER_KEY, legacySession);
+        sessionStorage.removeItem(SESSION_USER_KEY);
+      }
+      currentUser = localStorage.getItem(SESSION_USER_KEY);
       loadState();
       document.getElementById('signOutBtn').addEventListener('click', doSignOut);
       document.getElementById('signInForm').addEventListener('submit', function(e) {
